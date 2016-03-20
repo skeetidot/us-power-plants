@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset=utf-8 />
+    <title>Coal, Hydroelectric, and Wind Power Plants in the US</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: whitesmoke;
+            font-family: Lato, sans-serif;
+            color: #0D0000;
+        }
+        
+        header {
+            padding: 6px 10%;
+        }
+        
+        h1 {
+            display: inline-block;
+            margin-right: 20px;
+            color: #001323;
+        }
+        
+        h2 {
+            display: inline-block;
+            color: #001323;
+        }
+        
+        #map {
+            width: 80%;
+            height: 540px;
+            margin: 10px auto;
+        }
+        
+        footer {
+            padding: 6px 10%;
+            width: 80%;
+        }
+        
+        p {
+            font-size: 1em;
+            color: #001323;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Power Near and Far</h1>
+        <h2>Coal, Hydroelectric, and Wind Power Plants in the US</h2>
+    </header>
+
+    <div id='map'></div>
+
+    <footer>
+        <p>Map authored by Lauren Winkler</p>
+        <p>This map displays coal, hydroelectric, and wind power plants. Coal power plants are shown in orange, hydroelectric power plants are shown in blue, and wind power plants are shown in light blue. The size of the circle indicates the total capacity of the power plant from all of its fuel sources, in megawatts.</p>
+        <p>Use the table of contents in the top right corner of the map to turn the plants powered by each fuel source on and off.</p>
+        <p>Click a point on the map (where there are no power plants) to see only the power plants within 500 km of that point, along with their total electricity capacity, per fuel source. Once you have zeroed in on an area of interest, click a specific power plant to see its name, capacity per fuel source, and distance from the point you clicked, in km.</p>
+        <p>Data is filtered from a set of 6,900 electricity generating power plants across the US, obtained from the <a href="http://www.eia.gov/electricity/data/eia923/">EIA's form 923</a>.</p>
+    </footer>
+
+    <script src="power-plants.js"></script>
+    <script>
+        // Create a map centered in the US with a minimum zoom level of 4
+        var map = L.map('map', {
+            center: [36, -94],
+            zoom: 4,
+            minZoom: 4
+        });
+
+        // Add the CartoDB dark tile basemap
+        var tiles = L.tileLayer('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        });
+
+        tiles.addTo(map);
+
+        // Create an object to hold the three fuel source layers and the stroke and fill colors for each layer
+        var layerInfo = {
+            coalLayer: {
+                source: "Coal",
+                fillColor: '#ff9933',
+                color: '#e67300'
+            },
+            hydroLayer: {
+                source: "Hydro",
+                fillColor: '#1f78b4',
+                color: '#1a6699'
+            },
+            windLayer: {
+                source: "Wind",
+                fillColor: '#a6cee3',
+                color: '#8bbeda'
+            }
+        };
+
+        // Sort the GeoJSON data from high capacity values to low capacity values, so that the larger capacity power plants draw first
+        plants.features.sort(function (a, b) {
+            return b.properties.capacity_mw - a.properties.capacity_mw;
+        });
+
+        // Create an object of common styles that will be applied to each circleMarker
+        var commonStyles = {
+            weight: 1,
+            stroke: 1,
+            fillOpacity: .8
+        };
+
+        // Create an empty object that will be used to store each Leaflet GeoJson layer
+        var geoJsonLayers = {};
+
+        // Loop through each layer in the layerInfo object and create a Leaflet GeoJson layer for it. Add each layer to the geoJsonLayers object as a series of circleMarkers. Filter each layer by its fuel source and style it using the fuel source and style options in the layerInfo object.
+        for (var layer in layerInfo) {
+
+            geoJsonLayers[layer] = L.geoJson(plants, {
+
+                // Create circleMarkers for each feature
+                pointToLayer: function (feature, latlng) {
+                    return L.circleMarker(latlng, commonStyles);
+                },
+
+                // Filter features with each fuel source in the layerInfo object
+                filter: function (feature) {
+                    if (feature.properties.fuel_source[layerInfo[layer].source]) {
+                        return feature;
+                    }
+                },
+
+                // Style the features from each fuel source with the corresponding stroke and fill colors in the layerInfo object and the proportional radius from the getRadius method.
+                style: function (feature) {
+                    return {
+                        color: layerInfo[layer].color,
+                        fillColor: layerInfo[layer].fillColor,
+                        radius: getRadius(feature.properties.fuel_source[layerInfo[layer].source])
+                    }
+                }
+            }).addTo(map);
+        }
+
+        // Get the radius of each circle based on its area. Area = π*r2, so Radius = Sqrt(Area/π).
+        function getRadius(val) {
+            var radius = Math.sqrt(val / Math.PI);
+            return radius * .8;
+        }
+
+        // Create an empty feature group for the spotlight filter so previous filters can be cleared
+        var spotlightFilterGroup = L.featureGroup();
+
+        // When the user clicks a point on the map:
+        // 1. Filter the power plants to only show those within 500 km of the point clicked. Add a popup to each remaining power plant that shows the distance between the power plant and the point clicked.
+        // 2. Create a spotlight filter circle showing a 500 km radius around the point clicked.
+        // 3. Aggregate the total capacity of each fuel source within the 500 km radius. 
+        map.on('click', function (e) {
+
+            // Create an empty string to store the spotlight filter popup with the total capacity of each fuel source
+            var spotlightFilterPopup = "";
+
+            // Create an object to store the total capacities of each fuel source in the spotlight filter. Set each initial capacity to 0.
+            var totalSpotlightFuelSourceCapacities = {
+                Hydro: 0,
+                Coal: 0,
+                "Natural Gas": 0,
+                Petroleum: 0,
+                Nuclear: 0,
+                Wind: 0,
+                "Pumped Storage": 0,
+                Solar: 0,
+                Geothermal: 0,
+                Biomass: 0,
+                Wood: 0,
+                Other: 0,
+                "Other Fossil Gasses": 0
+            };
+
+            // Loop through each layer (coal, hydro, wind)
+            for (var layer in layerInfo) {
+
+                // Loop through each circleMarker feature within the layer
+                geoJsonLayers[layer].eachLayer(function (layer) {
+
+                    // Calculate the distance in kilometers between the point clicked and each feature's centroid.
+                    var distance = e.latlng.distanceTo(layer.getLatLng()) / 1000;
+
+                    // If the distance between the point clicked and the feature centroid is more than 500 km, set its stroke and fill to false to render it invisible.
+                    // Otherwise, set its stroke and fill to true so it remains visible and create a popup for the feature containing its name, fuel sources and their capacities, and distance from the point clicked.
+                    if (distance > 500) {
+                        layer.setStyle({
+                            stroke: false,
+                            fill: false
+                        });
+                    } else {
+                        layer.setStyle({
+                            stroke: true,
+                            fill: true,
+                        });
+
+                        // Create an empty string to store the fuel sources and capacities in each feature
+                        var fuelSourcePopupText = "";
+
+                        // Loop through all the fuel sources in each feature and build the line in the popup containing the name and capacity of each fuel source.
+                        // Add each fuel source's capacity to the total spotlight fuel source capacities object.
+                        for (var key in layer.feature.properties.fuel_source) {
+
+                            var fuelSource = key;
+                            var fuelSourceCapacity = layer.feature.properties.fuel_source[key];
+
+                            // If the fuel source popup text is not blank, there is already at least one other fuel source. Add a comma to make the comma-delimited list. Otherwise, do not add the comma.
+                            if (fuelSourcePopupText !== "") {
+                                fuelSourcePopupText += ", " + fuelSource + " (" + fuelSourceCapacity.toLocaleString() + " MW)";
+                            } else {
+                                fuelSourcePopupText += fuelSource + " (" + fuelSourceCapacity.toLocaleString() + " MW)";
+                            }
+
+                            // Loop through the possible fuel sources in the totalSpotlightFuelSourceCapacities object. If the current fuel source matches the fuel source in the totalSpotlightFuelSourceCapacities object, add its capacity to the total spotlight fuel source capacities object.
+                            for (var key in totalSpotlightFuelSourceCapacities) {
+                                if (fuelSource == key) {
+                                    totalSpotlightFuelSourceCapacities[key] += fuelSourceCapacity;
+                                }
+                            }
+                        }
+
+                        // Create a popup that displays the plant name in bold, the fuel sources and their capacities, and the distance between the plant and the point clicked.
+                        var popup = '<b>' + layer.feature.properties.plant_name + '</b>' + '<br/>' + fuelSourcePopupText + '<br/>' + distance.toLocaleString() + " km</b> from the point clicked";
+
+                        // Add the popup
+                        layer.bindPopup(popup);
+                    }
+                });
+            }
+
+            // Clear the previous spotlight filter
+            spotlightFilterGroup.clearLayers();
+
+            // Create a spotlight filter circle showing a 500 km radius around the point clicked
+            var spotlightFilter = L.circle(e.latlng, 500000, {
+                fillColor: '#ffffff',
+                stroke: false,
+                opacity: .2
+            });
+
+            // Add the spotlight filter circle to the spotlight filter feature group
+            spotlightFilter.addTo(spotlightFilterGroup);
+
+            // Add the spotlight filter feature group to the map and move it below the power points layers
+            spotlightFilterGroup.addTo(map);
+            spotlightFilterGroup.bringToBack();
+
+            // Create a popup that displays the total capacity of each fuel source in the spotlight filter
+            // Loop through all the key/value pairs in the totalSpotlightFuelSourceCapacities object and build the line in the popup containing the name and capacity of each fuel source whose capacity > 0
+            for (var key in totalSpotlightFuelSourceCapacities) {
+                if (totalSpotlightFuelSourceCapacities[key] > 0) {
+                    spotlightFilterPopup += '<b>' + key + ": </b>" + totalSpotlightFuelSourceCapacities[key].toLocaleString() + " MW<br/>";
+                }
+            }
+
+            // Add the popup to the spotlight filter circle and set it to be open by default
+            spotlightFilter.bindPopup(spotlightFilterPopup).openPopup();
+
+        });
+
+        // Create an object to store each layer control (table of contents) item, where each layer control's color matches the color of its data
+        var layerControlLabels = {
+            "<b style='color:#ff9933'>Coal</b>": geoJsonLayers.coalLayer,
+            "<b style='color:#1f78b4'>Hydro</b>": geoJsonLayers.hydroLayer,
+            "<b style='color:#a6cee3'>Wind</b>": geoJsonLayers.windLayer
+        }
+
+        // Create a layer control and add it to the map. The layer control contains the following parameters:
+        // 1. No basemap options
+        // 2. Layer control labels from the layerControlLabels object 
+        // 3. An options array where collapsed = false to keep the layer control UI open
+        L.control.layers(null, layerControlLabels, {
+            collapsed: false
+        }).addTo(map);
+    </script>
+
+</body>
+
+</html>
