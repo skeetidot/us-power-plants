@@ -6,10 +6,18 @@
     <title>Coal, Hydroelectric, and Wind Power Plants in the US</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
 
-    <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
 
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+    <!-- Add Leaflet CSS and Google Fonts -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+        crossorigin="" />
     <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+    <!-- Add Leaflet JS -->
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
 
     <style>
         body {
@@ -19,33 +27,33 @@
             font-family: Lato, sans-serif;
             color: #0D0000;
         }
-        
+
         header {
             padding: 6px 10%;
         }
-        
+
         h1 {
             display: inline-block;
             margin-right: 20px;
             color: #001323;
         }
-        
+
         h2 {
             display: inline-block;
             color: #001323;
         }
-        
+
         #map {
             width: 80%;
             height: 540px;
             margin: 10px auto;
         }
-        
+
         footer {
             padding: 6px 10%;
             width: 80%;
         }
-        
+
         p {
             font-size: 1em;
             color: #001323;
@@ -63,10 +71,17 @@
 
     <footer>
         <p>Map authored by Lauren Winkler</p>
-        <p>This map displays coal, hydroelectric, and wind power plants. Coal power plants are shown in orange, hydroelectric power plants are shown in blue, and wind power plants are shown in light blue. The size of the circle indicates the total capacity of the power plant from all of its fuel sources, in megawatts.</p>
-        <p>Use the table of contents in the top right corner of the map to turn the plants powered by each fuel source on and off.</p>
-        <p>Click a point on the map (where there are no power plants) to see only the power plants within 500 km of that point, along with their total electricity capacity, per fuel source. Once you have zeroed in on an area of interest, click a specific power plant to see its name, capacity per fuel source, and distance from the point you clicked, in km.</p>
-        <p>Data is filtered from a set of 6,900 electricity generating power plants across the US, obtained from the <a href="http://www.eia.gov/electricity/data/eia923/">EIA's form 923</a>.</p>
+        <p>This map displays coal, hydroelectric, and wind power plants. Coal power plants are shown in orange,
+            hydroelectric power plants are shown in blue, and wind power plants are shown in light blue. The size of the
+            circle indicates the total capacity of the power plant from all of its fuel sources, in megawatts.</p>
+        <p>Use the table of contents in the top right corner of the map to turn the plants powered by each fuel source
+            on and off.</p>
+        <p>Click a point on the map (where there are no power plants) to see only the power plants within 500 km of that
+            point, along with their total electricity capacity, per fuel source. Once you have zeroed in on an area of
+            interest, click a specific power plant to see its name, capacity per fuel source, and distance from the
+            point you clicked, in km.</p>
+        <p>Data is filtered from a set of 6,900 electricity generating power plants across the US, obtained from the <a
+                href="http://www.eia.gov/electricity/data/eia923/">EIA's form 923</a>.</p>
     </footer>
 
     <script src="power-plants.js"></script>
@@ -218,9 +233,11 @@
 
                             // If the fuel source popup text is not blank, there is already at least one other fuel source. Add a comma to make the comma-delimited list. Otherwise, do not add the comma.
                             if (fuelSourcePopupText !== "") {
-                                fuelSourcePopupText += ", " + fuelSource + " (" + fuelSourceCapacity.toLocaleString() + " MW)";
+                                fuelSourcePopupText += ", " + fuelSource + " (" + fuelSourceCapacity
+                                    .toLocaleString() + " MW)";
                             } else {
-                                fuelSourcePopupText += fuelSource + " (" + fuelSourceCapacity.toLocaleString() + " MW)";
+                                fuelSourcePopupText += fuelSource + " (" + fuelSourceCapacity
+                                    .toLocaleString() + " MW)";
                             }
 
                             // Loop through the possible fuel sources in the totalSpotlightFuelSourceCapacities object. If the current fuel source matches the fuel source in the totalSpotlightFuelSourceCapacities object, add its capacity to the total spotlight fuel source capacities object.
@@ -232,7 +249,9 @@
                         }
 
                         // Create a popup that displays the plant name in bold, the fuel sources and their capacities, and the distance between the plant and the point clicked.
-                        var popup = '<b>' + layer.feature.properties.plant_name + '</b>' + '<br/>' + fuelSourcePopupText + '<br/>' + distance.toLocaleString() + " km</b> from the point clicked";
+                        var popup = '<b>' + layer.feature.properties.plant_name + '</b>' + '<br/>' +
+                            fuelSourcePopupText + '<br/>' + distance.toLocaleString() +
+                            " km</b> from the point clicked";
 
                         // Add the popup
                         layer.bindPopup(popup);
@@ -261,7 +280,8 @@
             // Loop through all the key/value pairs in the totalSpotlightFuelSourceCapacities object and build the line in the popup containing the name and capacity of each fuel source whose capacity > 0
             for (var key in totalSpotlightFuelSourceCapacities) {
                 if (totalSpotlightFuelSourceCapacities[key] > 0) {
-                    spotlightFilterPopup += '<b>' + key + ": </b>" + totalSpotlightFuelSourceCapacities[key].toLocaleString() + " MW<br/>";
+                    spotlightFilterPopup += '<b>' + key + ": </b>" + totalSpotlightFuelSourceCapacities[key]
+                        .toLocaleString() + " MW<br/>";
                 }
             }
 
